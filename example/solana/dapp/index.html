@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <!-- <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script> -->
+    <!-- <script src="./node_modules/@solana/spl-token/lib/index.iife.js"></script> -->
+    <script src="./js/@solana/web3.js"></script>
+    <script src="./js/@solana/spl-token.js"></script>
+    <style>
+      body > div {
+        display: flex;
+        flex-direction: column;
+        max-width: 400px;
+        margin-top: 30px;
+      }
+      input {
+        height: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>connect(链接)：It's best to switch to sol network and link(最好切换到sol网络在进行链接)</h1>
+      <button data-method="connect">connect</button><span></span><span data-value="account">--</span>
+    </div>
+    <div>
+      <h1>transfer(转账)</h1>
+      <div>If the token address of the transfer user is not created, please check the API creation user address. There is no creation address here。 如果转账用户的代币地址没有创建，请查看api创建用户代币地址，这里没有做创建地址</div>
+      from:<input id="from" type="text" /> to:<input id="to" type="text" /> amount:<input id="amount" type="number" /> 代币contract：<input id="contract" value="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" type="text" />
+      <button data-method="sendTranstion">sendTranstion</button>
+    </div>
+
+    <script type="module">
+      console.log("..", { splToken });
+      class Events {
+        constructor() {
+          this.events = {};
+        }
+        on(name, fn) {
+          this.events[name] = fn;
+        }
+        emit(name = "", ...arg) {
+          this.events[name] && this.events[name](...arg);
+        }
+        off(name) {
+          delete this.events[name];
+        }
+      }
+      class Wallet extends Events {
+        constructor() {
+          super();
+          this.state = {
+            address: "",
+            publicKey: "",
+          };
+        }
+
+        isInstalled() {
+          return window.solana;
+        }
+        isConnected() {
+          return window.solana.isConnected;
+        }
+        async connect() {
+          if (this.isInstalled) {
+            await window.solana.connect();
+            this.state.address = window.solana.publicKey.toString();
+            document.querySelector("#from").value = this.state.address;
+            this.emit("connected", this.state.address);
+            return this.state.address;
+          } else {
+          }
+        }
+
+        async signTransaction(data) {
+          // http://cw.hubwiz.com/card/c/solana-rpc-api/1/1/42/ rpc
+          let connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl(solana.network), "confirmed");
+          let fromPublicKey = new solanaWeb3.PublicKey(data.from);
+          let toPublicKey = new solanaWeb3.PublicKey(data.to);
+
+          let transaction = new solanaWeb3.Transaction();
+          try {
+            if (data.contract) {
+              let TokenPublicKey = new solanaWeb3.PublicKey(data.contract); 
+              let TokenInstance = new splToken.Token(connection, TokenPublicKey, splToken.TOKEN_PROGRAM_ID, fromPublicKey);
+              // If it does not exist, please create the user address according to the API. There is no creation address here (如果不存在请根据api创建用户地址 这里没有做创建地址)
+              let fromTokenAccount = await TokenInstance.getOrCreateAssociatedAccountInfo(fromPublicKey); 
+              let toTokenAccount = await TokenInstance.getOrCreateAssociatedAccountInfo(toPublicKey);
+
+              transaction.add(splToken.Token.createTransferInstruction(splToken.TOKEN_PROGRAM_ID, fromTokenAccount.address, toTokenAccount.address, fromPublicKey, [], data.value * 1e6));
+            } else {
+              transaction.add(
+                solanaWeb3.SystemProgram.transfer({
+                  fromPubkey: new solanaWeb3.PublicKey(data.from),
+                  toPubkey: new solanaWeb3.PublicKey(data.to),
+                  lamports: data.value * 1e9, // 10^9 = 1 SOL
+                })
+              );
+            }
+
+            transaction.feePayer = fromPublicKey; //fee   Payment user
+            transaction.recentBlockhash = (await connection.getRecentBlockhash("max")).blockhash; // Latest transaction hash(最新的交易hash)
+
+
+
+            let signed = await window.solana.signTransaction(transaction);
+
+            let txid = await connection.sendRawTransaction(signed.serialize());
+            return await connection.confirmTransaction(txid);
+          } catch (error) {
+            console.error(error);
+            alert(JSON.stringify(error));
+          }
+        }
+      }
+
+      window.wallet = new Wallet();
+
+      //sol doc
+      // https://solana-labs.github.io/solana-web3.js/
+      // https://docs.solana.com/?utm_source=solana.com
+      // https://docs.phantom.app/integrating/establishing-a-connection
+      // https://cloud.tencent.com/developer/ask/sof/813394
+      //events
+      wallet.on("connected", function (account) {
+        const el = getValue("account");
+        if (!el) return;
+        el.innerText = account;
+        document.querySelector("#from").value = this.state.address;
+      });
+
+      //ui btn click
+      const btnsMethods = Array.from(document.querySelectorAll("button[data-method]"));
+      btnsMethods.forEach((el) => {
+        el.onclick = async function (event) {
+          const { method } = event.target.dataset;
+          switch (method) {
+            case "connect":
+              await wallet.connect();
+              break;
+            case "sendTranstion":
+              const from = document.querySelector("#from").value,
+                to = document.querySelector("#to").value,
+                amount = document.querySelector("#amount").value,
+                contract = document.querySelector("#contract").value;
+              const transtions = await wallet.signTransaction({
+                from,
+                to,
+                value: amount,
+                contract,
+              });
+              console.log("sendTranstion", transtions);
+              break;
+            default:
+              break;
+          }
+        };
+      });
+
+      //init
+      window.wallet.connect();
+
+      //utils
+      function getValue(key) {
+        const spans = Array.from(document.querySelectorAll("span[data-value]"));
+        return spans.find((el) => el.dataset.value == key);
+      }
+    </script>
+  </body>
+</html>

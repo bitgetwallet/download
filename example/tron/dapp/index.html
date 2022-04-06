@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <!-- <script src="./js/TronWeb.js"></script> -->
+    <style>
+        body>div {
+            display: flex;
+            flex-direction: column;
+            max-width: 400px;
+            margin-top: 30px;
+        }
+
+        input {
+            height: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <h1>connect(链接)</h1>
+        <button data-method="connect">connect</button><span id="account">--</span>
+        <span id="balance">0</span>
+    </div>
+    <h1>transfer(转账)</h1>
+    from:<input id="from" type="text" /> to:<input id="to" type="text" value="TW8u1VSwbXY7o7H9kC8HmCNTiSXvD69Uiw" />
+    amount:<input id="amount" type="number" /> Token(代币) contract：<input id="contract" value="" type="text" />
+    <button data-method="sendTransaction">sendTranstion</button>
+    </div>
+
+    <script type="module">
+        function transfer16(val = 0) {
+            val = isNaN(Number(val)) ? 1 : Number(val);
+            return "0x" + val.toString(16);
+        }
+        class Wallet {
+            constructor() {
+                this.state = {
+                    address: "",
+                };
+            }
+
+            get selectedAddress() {
+                return this.state.address;
+            }
+            set selectedAddress(val) {
+                this.state.address = val;
+                document.querySelector("#account").innerHTML = this.state.address;
+            }
+
+            isInstall() {
+                return window.tronLink && window.tronWeb;
+            }
+
+            async connect() {
+                await tronLink.request({ method: "tron_requestAccounts" });
+                this.selectedAddress = tronWeb.defaultAddress.base58;
+
+                const balance = await tronWeb.trx.getBalance(this.selectedAddress);
+                document.querySelector("#from").value = this.selectedAddress
+                document.querySelector("#balance").innerHTML = balance
+            }
+
+
+            async sendTransaction(data) {
+                // Create transaction 创建交易
+                if (data.contract) {
+
+                    // First 第一种
+                    let decimal = 18
+                    let Contract = await tronWeb.contract().at(data.contract)
+                    const decimalCall = Contract.decimals || Contract.DECIMALS;
+                    if (decimalCall) {
+                        decimal = await decimalCall().call()
+                    }
+                    let result = await Contract.transfer(
+                        data.to,
+                        tronWeb.toHex(data.value * Math.pow(10, decimal))
+                    ).send()
+             
+                    console.log(result);
+                    return result.txid
+
+                    // Second  第二种
+                    // const parameter = [{ type: 'address', value: data.to * Math.pow(10, 18) }];
+                    // var tx = await tronWeb.transactionBuilder.triggerSmartContract(
+                    //     data.contract,
+                    //     "registrationExt(address)",
+                    //     {},
+                    //     parameter,
+                    //     this.selectedAddress
+                    // );
+                    // var signedTx = await tronWeb.trx.sign(tx.transaction);
+                    // var broastTx = await tronWeb.trx.sendRawTransaction(signedTx);
+                    // console.log(broastTx)
+
+
+
+                } else {
+                    let tx = await tronWeb.transactionBuilder.sendTrx(data.to, data.value * Math.pow(10, 6), data.from);
+                    // sign 签名  
+                    var signedTx = await tronWeb.trx.sign(tx);
+                    //  broadcast  广播
+                    var broastTx = await tronWeb.trx.sendRawTransaction(signedTx);
+                    console.log(broastTx);
+                    return broastTx.txid
+                }
+
+            }
+        }
+
+        //ui btn click
+        const btnsMethods = Array.from(document.querySelectorAll("button[data-method]"));
+        btnsMethods.forEach((el) => {
+            el.onclick = async function (event) {
+                try {
+                    const { method } = event.target.dataset;
+                    switch (method) {
+                        case "connect":
+                            await wallet.connect();
+                            break;
+                        case "sendTransaction":
+                            const txid = await wallet.sendTransaction({
+                                from: document.querySelector("#from").value,
+                                to: document.querySelector("#to").value,
+                                value: document.querySelector("#amount").value,
+                                contract: document.querySelector("#contract").value,
+                            });
+                            alert(txid);
+                            break;
+                        default: break
+
+                    }
+                } catch (error) {
+                    console.log(error)
+                    alert(typeof error == "object" ? JSON.stringify(error) : error + '!! There may not be a Tron network!!')
+                }
+
+
+            };
+        });
+
+        //init
+        const wallet = new Wallet();
+        if (wallet.isInstall) {
+            await wallet.connect();
+        }
+
+
+
+      //doc
+      // demo https://github.com/tronprotocol/tronweb/tree/master/demo/tron-dapp-react-demo
+    </script>
+</body>
+
+</html>
