@@ -7,13 +7,13 @@
 
 
 
-# web3Provider
+# Some third-party packages 
 ## [web3modal](https://github.com/Web3Modal/web3modal)
 ```
     import Web3Modal, { connectors } from "web3modal"
-
+    
     this.web3Modal = new Web3Modal({
-      network: this.getNetwork(),
+      network:'mainnet' ,
       cacheProvider: true,
       providerOptions: {
           "custom-injected": {
