@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <!-- import WalletConnect from "@walletconnect/client";
+    import WalletConnectQRCodeModal from "@walletconnect/qrcode-modal"; -->
+    <script src="./node_modules/@walletconnect/client/dist/umd/index.min.js"></script>
+    <script src="./node_modules/@walletconnect/qrcode-modal/dist/umd/index.min.js"></script>
+    <style>
+      body > div {
+        display: flex;
+        flex-direction: column;
+        max-width: 500px;
+        margin-top: 30px;
+      }
+      input {
+        height: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>链接</h1>
+      <button data-method="connect">connect</button><button data-method="disconnected">disconnected</button><span id="account">--</span>
+    </div>
+    <script type="module">
+      WalletConnect = WalletConnect.default;
+      WalletConnectQRCodeModal = WalletConnectQRCodeModal.default;
+
+      function transfer16(val = 0) {
+        val = isNaN(Number(val)) ? 1 : Number(val);
+        return "0x" + val.toString(16);
+      }
+      class Wallet {
+        constructor() {
+          this.state = {
+            address: "",
+            chainId: "",
+          };
+          this.connector = null;
+          this.bridge = "https://bridge.walletconnect.org";
+        }
+
+        get chainId() {
+          return this.state.chainId;
+        }
+        set chainId(chainId) {
+          this.state.chainId = chainId;
+          document.querySelector("#chainId").value = String(this.state.chainId);
+        }
+        get selectedAddress() {
+          return this.state.address;
+        }
+        set selectedAddress(val) {
+          this.state.address = val;
+          document.querySelector("#account").innerHTML = this.state.address;
+          document.querySelector("#from").value = this.state.address;
+        }
+
+        async connect() {
+          // Create a connector
+          const connector = new WalletConnect({
+            bridge: this.bridge, // Required
+            qrcodeModal: WalletConnectQRCodeModal,
+          });
+
+          this.connector = connector;
+          // Check if connection is already established
+          if (!this.connector.connected) {
+            // create new session
+            await this.connector.createSession();
+          }
+          this.initEvent();
+        }
+
+        initEvent() {
+          this.connector.on("connect", (error, payload) => {
+            if (error) {
+              throw error;
+            }
+            // Get provided accounts and chainId
+            const { accounts, chainId } = payload.params[0];
+            this.selectedAddress = accounts[0];
+            this.chainId = chainId;
+          });
+          this.connector.on("session_update", (error, payload) => {
+            if (error) {
+              throw error;
+            }
+
+            const { accounts, chainId } = payload.params[0];
+            this.selectedAddress = accounts[0];
+            this.chainId = chainId;
+          });
+
+          this.connector.on("disconnect", (error, payload) => {
+            alert("disconnect");
+            if (error) {
+              throw error;
+            }
+            this.selectedAddress = "";
+            this.chainId = 1;
+            // Delete connector
+          });
+        }
+        disconnected() {
+          this.connector.killSession();
+        }
+      }
+
+      //ui btn click
+      const btnsMethods = Array.from(document.querySelectorAll("button[data-method]"));
+      btnsMethods.forEach((el) => {
+        el.onclick = async function (event) {
+          const { method } = event.target.dataset;
+          switch (method) {
+            case "connect":
+              await wallet.connect();
+              break;
+            case "disconnected":
+              wallet.disconnected();
+              break;
+          }
+        };
+      });
+
+      const wallet = new Wallet();
+      window.wallet = wallet;
+
+      //doc
+      //https://metamask.github.io/api-playground/api-documentation/#wallet_switchEthereumChain
+    </script>
+  </body>
+</html>

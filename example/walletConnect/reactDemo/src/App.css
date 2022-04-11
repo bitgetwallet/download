@@ -1,0 +1,9 @@
+.testdemo > div {
+  display: flex;
+  flex-direction: column;
+  max-width: 500px;
+  margin-top: 30px;
+}
+input {
+  height: 30px;
+}
