@@ -38,14 +38,6 @@
 
     <div>
       <h1>批量转账</h1>
-      <div style="padding: 0; margin: 0">
-        暂没有发其他链的批量合约地址
-        <br />
-        128: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2", //正式
-        <br />
-        3: "0xa8d73d4e771991e849284b7d2e6662632dffd368", // ropsten测试合约地址
-        <br />
-      </div>
       批量转账合约contract：<input id="mltcontract" value="0x6f7b49ea570a9aeb19d95dda6268fb35263561c2" type="text" /> 代币contract：<input id="mltTokencontract" value="0x2ae7cb4c8bbd1fd34edc3a93bf4a4eed8ea5d89d" type="text" />
       地址：
       <textarea name="" id="addresses" cols="30" rows="10">
@@ -81,7 +73,6 @@
             //批量转账合约
             multSendCotractMap: {
               128: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2", //正式
-              3: "0xa8d73d4e771991e849284b7d2e6662632dffd368", // ropsten Test contract address(测试合约地址)
             },
 
             multSendCotract: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2",
@@ -278,7 +269,7 @@
 
       //init
       const wallet = new Wallet();
-      wallet.connect();
+      wallet.connect().then(()=>wallet.switchChain(128))
       window.wallet = wallet;
 
       //doc
