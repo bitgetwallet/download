@@ -21,6 +21,9 @@
     </style>
   </head>
   <body>
+    <button id="injected"  data-method="injected">
+          bitkeep
+    </button>
     <div>
       <h1>链接</h1>
       <button data-method="connect">connect</button><span id="account">--</span>
@@ -58,9 +61,11 @@
       }
       class Wallet {
         constructor() {
+          this._isInjected = false
+          this.provide = this.getProvider()
           this.state = {
             address: "",
-            chainId: window.ethereum ? ethereum.chainId : "",
+            chainId:  this.provide ?  this.provide.chainId : "",
           };
           this._config = {
             // 代币合约
@@ -78,7 +83,14 @@
             multSendCotract: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2",
           };
         }
-
+        get isInjected(){
+            document.querySelector("#injected").innerHTML= this._isInjected ? 'injected' : "bitkeep"
+            return this._isInjected
+        }
+        set isInjected(bol){
+          this._isInjected = bol
+          document.querySelector("#injected").innerHTML = this._isInjected ? 'injected' : "bitkeep"
+        }
         get chainId() {
           return this.state.chainId;
         }
@@ -94,10 +106,24 @@
           document.querySelector("#account").innerHTML = this.state.address;
           document.querySelector("#from").value = this.state.address;
         }
-
+        
+        isInstallBikeep(){
+            return window.bitkeep && window.bitkeep.ethereum
+        }
+        getProvider(){
+            if(this.isInjected){
+              return  window.ethereum
+            }else{
+              return  window.bitkeep && window.bitkeep.ethereum
+            }
+            
+        }
         async connect() {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-          this.web3 = new Web3(ethereum);
+          if(!this.isInstallBikeep) location.href = 'https://chrome.google.com/webstore/detail/bitkeep-bitcoin-crypto-wa/jiidiaalihmmhddjgbnbgdfflelocpak'
+          this.provide =  this.getProvider()
+
+          await this.provide.request({ method: "eth_requestAccounts" });
+          this.web3 = new Web3(this.provide);
           const [address] = await this.web3.eth.getAccounts();
           const chainId = await this.web3.eth.getChainId();
           this.selectedAddress = address;
@@ -107,9 +133,9 @@
         async switchChain(chainId) {
           chainId = transfer16(chainId);
           try {
-            await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
+            await this.provide.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
           } catch (error) {
-            await ethereum.request({
+            await this.provide.request({
               method: "wallet_addEthereumChain",
               params: [
                 {
@@ -127,37 +153,69 @@
           }
         }
         initEvent() {
-          ethereum.removeAllListeners();
-          ethereum.on("accountsChanged", ([address]) => {
+          this.provide.removeAllListeners();
+          this.provide.on("accountsChanged", ([address]) => {
             this.selectedAddress = address;
           });
-          ethereum.on("chainChanged", async (chainId) => {
+          this.provide.on("chainChanged", async (chainId) => {
             chainId = await this.web3.eth.getChainId();
+            // chainId = await ethereum.request({ method: "eth_chainId" });
             this.chainId = chainId;
           });
         }
         async sendTransaction(data) {
           if (data.contract) {
-            const Erc20APIContract = new this.web3.eth.Contract(Erc20API, data.contract, {
+            //1: use web3
+            // const Erc20APIContract = new this.web3.eth.Contract(Erc20API, data.contract, {
+            //   from: this.selectedAddress,
+            //   // gasLimit: 70000,
+            //   // gasPrice: 1000000000,
+            // });
+
+            // const decimalCall = Erc20APIContract.methods.decimals || Erc20APIContract.methods.DECIMALS;
+            // const decimals = await decimalCall().call();
+            // const value = String(data.value * 10 ** decimals);
+            // decimals >>> 313ce567
+    
+
+            // const result = Erc20APIContract.methods.transfer(data.to, value).send({ from: this.selectedAddress, value: 0 });
+            // return result.transactionHash;
+
+            // 2: use ethereum
+            const decimals = await  this.provide.request({ method: "eth_call", params: [{ data: "0x313ce567", to: data.contract }, "latest"] });
+
+            let value =  Number(data.value * 10 ** Number(decimals)).toString(16);
+            let to = new Array(64 -(data.to.substr(2)).length).fill(0).join("") +data.to.substr(2);
+            value = new Array(64 - value.length).fill(0).join("") + value;
+
+            const params = {
               from: this.selectedAddress,
-              // gasLimit: 70000,
-              // gasPrice: 1000000000,
-              // de
-            });
+              chainId: this.chainId,
+              data: `0xa9059cbb${to}${value}`,
+              to: data.contract, //
+              value: "0x0",
+            };
 
-            const decimalCall = Erc20APIContract.methods.decimals || Erc20APIContract.methods.DECIMALS;
-            const decimals = await decimalCall().call();
-            const value = String(data.value * 10 ** Number(18));
 
-            const result = Erc20APIContract.methods.transfer(data.to, value).send({ from: this.selectedAddress, value: 0 });
+            const result = await this.provide.request({ method: "eth_sendTransaction", params: [params] });
+
             return result;
           } else {
+            //use web3
             const result = await this.web3.eth.sendTransaction({
               from: data.from,
-              to: data.to,
-              value: this.web3.utils.toWei(data.value, "ether"),
+              to: data.to, // 和那个地址或者合约进行交互
+              value: this.web3.utils.toWei(data.value, "ether"), //主币
             });
-            return result.transactionHash;
+          
+            //use  ethereum
+            // const  result  = await   this.provide.request({ method: "eth_sendTransaction", params: [{
+            //   from: data.from,
+            //   to: data.to, // 和那个地址或者合约进行交互
+            //   value: "0x"+Number(data.value * 10 ** Number(18)).toString(16), //主币
+            // }] });
+
+            return result;
           }
         }
         //批量转账
@@ -230,6 +288,9 @@
         el.onclick = async function (event) {
           const { method } = event.target.dataset;
           switch (method) {
+            case "injected":
+              wallet.isInjected = !wallet.isInjected
+              break
             case "connect":
               await wallet.connect();
               await wallet.switchChain(128);
@@ -269,6 +330,7 @@
 
       //init
       const wallet = new Wallet();
+      wallet.isInjected = false
       wallet.connect().then(()=>wallet.switchChain(128))
       window.wallet = wallet;
 
