@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>bitKeep</title>
     <script src="./js/web3.min.js"></script>
     <script src="./abi/erc20.js"></script>
     <script src="./abi/poolABI.js"></script>
@@ -21,32 +21,29 @@
     </style>
   </head>
   <body>
-    <button id="injected"  data-method="injected">
-          bitkeep
-    </button>
     <div>
-      <h1>链接</h1>
+      <h1>Connet</h1>
       <button data-method="connect">connect</button><span id="account">--</span>
     </div>
     <div>
-      <h1>切换网络</h1>
+      <h1>Switch Network</h1>
       chainId :<input id="chainId" type="text" />
       <button data-method="wallet_switchEthereumChain">wallet_switchEthereumChain</button>
     </div>
     <div>
-      <h1>转账EVM</h1>
+      <h1>Transfer</h1>
       from:<input id="from" type="text" /> to:<input id="to" type="text" /> amount:<input id="amount" type="number" /> 代币contract：<input id="contract" value="" type="text" />
       <button data-method="sendTransaction">sendTranstion</button>
     </div>
 
     <div>
-      <h1>批量转账</h1>
-      批量转账合约contract：<input id="mltcontract" value="0x6f7b49ea570a9aeb19d95dda6268fb35263561c2" type="text" /> 代币contract：<input id="mltTokencontract" value="0x2ae7cb4c8bbd1fd34edc3a93bf4a4eed8ea5d89d" type="text" />
-      地址：
+      <h1>Batch transfer</h1>
+      Batch transfer contract：<input id="mltcontract" value="0x6f7b49ea570a9aeb19d95dda6268fb35263561c2" type="text" /> 代币contract：<input id="mltTokencontract" value="0x2ae7cb4c8bbd1fd34edc3a93bf4a4eed8ea5d89d" type="text" />
+      address:
       <textarea name="" id="addresses" cols="30" rows="10">
         0x1da770d53eBe21c79cebD9cb0C9ce885BeD251DC,0xc82D88971c1cC94c1e0821aDD449a4655C98E2BA
       </textarea>
-      金额：
+      amount：
       <textarea name="" id="amounts" cols="30" rows="10">
         0.01,0.01
     </textarea
@@ -61,35 +58,26 @@
       }
       class Wallet {
         constructor() {
-          this._isInjected = false
           this.provide = this.getProvider()
           this.state = {
             address: "",
             chainId:  this.provide ?  this.provide.chainId : "",
           };
           this._config = {
-            // 代币合约
+        
             tokensCotractMap: {
               128: {
-                "0x2ae7cb4c8bbd1fd34edc3a93bf4a4eed8ea5d89d": "usd", //正式
-                "0xf724f73F7800Fc0738daEa4f9e41627f97A0306C": "iwo", //正式
+                "0x2ae7cb4c8bbd1fd34edc3a93bf4a4eed8ea5d89d": "usd", //release
+                "0xf724f73F7800Fc0738daEa4f9e41627f97A0306C": "iwo", //release
               },
             },
-            //批量转账合约
+
             multSendCotractMap: {
-              128: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2", //正式
+              128: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2", //release
             },
 
             multSendCotract: "0x6f7b49ea570a9aeb19d95dda6268fb35263561c2",
           };
-        }
-        get isInjected(){
-            document.querySelector("#injected").innerHTML= this._isInjected ? 'injected' : "bitkeep"
-            return this._isInjected
-        }
-        set isInjected(bol){
-          this._isInjected = bol
-          document.querySelector("#injected").innerHTML = this._isInjected ? 'injected' : "bitkeep"
         }
         get chainId() {
           return this.state.chainId;
@@ -110,19 +98,19 @@
         isInstallBikeep(){
             return window.bitkeep && window.bitkeep.ethereum
         }
-        getProvider(){
-            if(this.isInjected){
-              return  window.ethereum
-            }else{
-              return  window.bitkeep && window.bitkeep.ethereum
-            }
-            
+        getProvider() {
+          const provider = window.bitkeep && window.bitkeep.ethereum;
+          if (!provider) {
+            return window.open('https://bitkeep.com/download?type=0&theme=light');
+          }
+          return provider;
         }
+
         async connect() {
-          if(!this.isInstallBikeep) location.href = 'https://chrome.google.com/webstore/detail/bitkeep-bitcoin-crypto-wa/jiidiaalihmmhddjgbnbgdfflelocpak'
           this.provide =  this.getProvider()
 
           await this.provide.request({ method: "eth_requestAccounts" });
+          
           this.web3 = new Web3(this.provide);
           const [address] = await this.web3.eth.getAccounts();
           const chainId = await this.web3.eth.getChainId();
@@ -166,59 +154,59 @@
         async sendTransaction(data) {
           if (data.contract) {
             //1: use web3
-            // const Erc20APIContract = new this.web3.eth.Contract(Erc20API, data.contract, {
-            //   from: this.selectedAddress,
-            //   // gasLimit: 70000,
-            //   // gasPrice: 1000000000,
-            // });
+            const Erc20APIContract = new this.web3.eth.Contract(Erc20API, data.contract, {
+              from: this.selectedAddress,
+              // gasLimit: 70000,
+              // gasPrice: 1000000000,
+            });
 
-            // const decimalCall = Erc20APIContract.methods.decimals || Erc20APIContract.methods.DECIMALS;
-            // const decimals = await decimalCall().call();
-            // const value = String(data.value * 10 ** decimals);
+            const decimalCall = Erc20APIContract.methods.decimals || Erc20APIContract.methods.DECIMALS;
+            const decimals = await decimalCall().call();
+            const value = String(data.value * 10 ** decimals);
             // decimals >>> 313ce567
     
 
-            // const result = Erc20APIContract.methods.transfer(data.to, value).send({ from: this.selectedAddress, value: 0 });
-            // return result.transactionHash;
+            const result = Erc20APIContract.methods.transfer(data.to, value).send({ from: this.selectedAddress, value: 0 });
+            return result.transactionHash;
 
             // 2: use ethereum
-            const decimals = await  this.provide.request({ method: "eth_call", params: [{ data: "0x313ce567", to: data.contract }, "latest"] });
+            // const decimals = await  this.provide.request({ method: "eth_call", params: [{ data: "0x313ce567", to: data.contract }, "latest"] });
 
-            let value =  Number(data.value * 10 ** Number(decimals)).toString(16);
-            let to = new Array(64 -(data.to.substr(2)).length).fill(0).join("") +data.to.substr(2);
-            value = new Array(64 - value.length).fill(0).join("") + value;
+            // let value =  Number(data.value * 10 ** Number(decimals)).toString(16);
+            // let to = new Array(64 -(data.to.substr(2)).length).fill(0).join("") +data.to.substr(2);
+            // value = new Array(64 - value.length).fill(0).join("") + value;
 
-            const params = {
-              from: this.selectedAddress,
-              chainId: this.chainId,
-              data: `0xa9059cbb${to}${value}`,
-              to: data.contract, //
-              value: "0x0",
-            };
+            // const params = {
+            //   from: this.selectedAddress,
+            //   chainId: this.chainId,
+            //   data: `0xa9059cbb${to}${value}`,
+            //   to: data.contract, //
+            //   value: "0x0",
+            // };
 
 
-            const result = await this.provide.request({ method: "eth_sendTransaction", params: [params] });
+            // const result = await this.provide.request({ method: "eth_sendTransaction", params: [params] });
 
             return result;
           } else {
             //use web3
             const result = await this.web3.eth.sendTransaction({
               from: data.from,
-              to: data.to, // 和那个地址或者合约进行交互
-              value: this.web3.utils.toWei(data.value, "ether"), //主币
+              to: data.to, // Interact with that address or contract
+              value: this.web3.utils.toWei(data.value, "ether")
             });
           
             //use  ethereum
             // const  result  = await   this.provide.request({ method: "eth_sendTransaction", params: [{
             //   from: data.from,
-            //   to: data.to, // 和那个地址或者合约进行交互
+            //   to: data.to, // Interact with that address or contract
             //   value: "0x"+Number(data.value * 10 ** Number(18)).toString(16), //主币
             // }] });
 
             return result;
           }
         }
-        //批量转账
+        // Batch transfer
         async sendMultTransaction(data) {
           let { 
             addresses=[],   
@@ -288,9 +276,6 @@
         el.onclick = async function (event) {
           const { method } = event.target.dataset;
           switch (method) {
-            case "injected":
-              wallet.isInjected = !wallet.isInjected
-              break
             case "connect":
               await wallet.connect();
               await wallet.switchChain(128);
@@ -330,7 +315,7 @@
 
       //init
       const wallet = new Wallet();
-      wallet.isInjected = false
+  
       wallet.connect().then(()=>wallet.switchChain(128))
       window.wallet = wallet;
 
