@@ -19,7 +19,7 @@ class BitkeepConnector extends InjectedConnector {
       return this.provider;
     }
     getReady(ethereum) {
-      if (!ethereum.isBitKeep || !ethereum) return;
+      if (!ethereum || !ethereum.isBitKeep) return;
       // Brave tries to make itself look like BitKeep
       // Could also try RPC `web3_clientVersion` if following is unreliable
       if (ethereum.isBraveWallet && !ethereum._events && !ethereum._state) return;
